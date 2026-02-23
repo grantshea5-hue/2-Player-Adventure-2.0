@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Co-Op AdVenture Capitalist</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.jsdelivr.net/npm/break_infinity.js@2/break_infinity.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-database-compat.js"></script>
+
+  <style>
+    * { box-sizing: border-box; margin:0; padding:0; }
+    body {
+      font-family: 'Oswald', sans-serif;
+      background: linear-gradient(135deg, #fff3e0, #ffe082, #ffcc80);
+      color: #333;
+      min-height: 100vh;
+      padding: 15px;
+      text-align: center;
+    }
+    h1 { color: #ff6f00; text-shadow: 0 0 12px #ffb300; margin: 15px 0; font-size: 2.8rem; }
+    .money-big { font-size: 70px; font-weight: bold; color: #ff6f00; margin: 12px 0; font-family: 'Roboto Condensed'; animation: bounce 1.6s infinite; }
+    @keyframes bounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+    .stat { background: rgba(255,255,255,0.8); padding: 14px; border-radius: 12px; margin: 12px auto; max-width: 700px; font-size: 22px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    .player-panel { display: inline-block; width: 48%; vertical-align: top; margin: 10px; background: rgba(255,255,255,0.85); color: #333; padding: 18px; border-radius: 14px; border: 2px solid #ffb300; min-width: 320px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    .business-card { background: #fff; border: 2px solid #ffb300; border-radius: 14px; padding: 16px; margin: 12px; width: 280px; display: inline-block; vertical-align: top; box-shadow: 0 6px 16px rgba(0,0,0,0.15); transition: all 0.25s; }
+    .business-card:hover { transform: translateY(-8px) scale(1.04); box-shadow: 0 12px 28px rgba(255,179,0,0.4); }
+    .icon { font-size: 54px; margin-bottom: 10px; }
+    .owned { font-size: 32px; color: #4caf50; font-weight: bold; }
+    button { background: #4caf50; color: white; border: none; padding: 12px 24px; margin: 8px 4px; border-radius: 10px; cursor: pointer; font-size: 17px; transition: all 0.18s; }
+    button:hover:not(:disabled) { background: #66bb6a; transform: scale(1.1); }
+    button:disabled { background: #aaa; cursor: not-allowed; }
+    .manager-btn { background: #2196f3; }
+    .angel-btn { background: #ff5722; font-size: 22px; padding: 16px 48px; margin: 20px; border-radius: 40px; box-shadow: 0 4px 12px rgba(255,87,34,0.4); }
+    .planet-btn { background: #673ab7; color: white; border: none; padding: 12px 24px; margin: 6px; border-radius: 30px; cursor: pointer; font-size: 18px; }
+    .planet-btn.active { background: #ff9800; transform: scale(1.1); }
+    .tab-btn { background: #673ab7; color: white; border: none; padding: 10px 18px; margin: 4px; border-radius: 20px; cursor: pointer; }
+    .tab-btn.active { background: #ff9800; }
+    #chat { height: 200px; overflow-y: auto; background: rgba(255,255,255,0.9); color: #333; border-radius: 12px; padding: 14px; margin: 20px auto; max-width: 700px; text-align: left; font-size: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    .click-pop { position: absolute; font-size: 48px; color: #4caf50; pointer-events: none; animation: floatUp 1.2s forwards; font-weight: bold; text-shadow: 0 0 10px rgba(0,0,0,0.4); z-index: 100; }
+    @keyframes floatUp { 0% { opacity:1; transform:translateY(0) scale(1); } 100% { opacity:0; transform:translateY(-140px) scale(1.5); } }
+    .progress { background:#ddd; height:12px; border-radius:6px; margin:10px 0; overflow:hidden; }
+    .progress-bar { background:linear-gradient(90deg,#4caf50,#81c784); height:100%; transition:width 0.5s; }
+    .particle { position:absolute; font-size:32px; pointer-events:none; animation:explode 1.3s forwards; z-index: 100; }
+    @keyframes explode { to { opacity:0; transform:translateY(-200px) scale(0.1) rotate(1080deg); } }
+    .achievement-popup { position: fixed; top: 20%; left: 50%; transform: translateX(-50%); background: rgba(255,193,7,0.95); color: #333; padding: 20px 40px; border-radius: 16px; font-size: 28px; font-weight: bold; box-shadow: 0 8px 24px rgba(0,0,0,0.4); z-index: 1000; animation: popupFade 4s forwards; pointer-events: none; }
+    @keyframes popupFade { 0% { opacity:0; transform:translate(-50%, -30px); } 10% { opacity:1; transform:translate(-50%, 0); } 90% { opacity:1; transform:translate(-50%, 0); } 100% { opacity:0; transform:translate(-50%, -30px); } }
+    #status { color: #ff6f00; margin: 15px; font-size: 20px; font-weight: bold; min-height: 30px; }
+    @media (max-width: 768px) { .player-panel { width: 100%; margin: 10px 0; } .business-card { width: calc(50% - 20px); margin: 8px; } }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1>Co-Op AdVenture Capitalist</h1>
+
+  <div id="setup">
+    <input id="roomInput" placeholder="Room Code (e.g. grant1)" maxlength="15" style="padding:14px; font-size:20px; width:240px; margin:10px; border-radius:8px; border:2px solid #ffb300;">
+    <input id="nameInput" placeholder="Your Name" style="padding:14px; font-size:20px; width:240px; margin:10px; border-radius:8px; border:2px solid #ffb300;">
+    <br>
+    <button id="joinBtn" onclick="joinRoom()" style="background:#ffb300;color:#000;font-weight:bold;padding:18px 60px;font-size:22px;margin:20px 0;cursor:pointer;border:none;border-radius:40px;box-shadow:0 8px 20px rgba(255,179,0,0.6);">
+      Join Empire
+    </button>
+    <div id="status"></div>
+  </div>
+
+  <div id="game" style="display:none;">
+    <div class="stat money-big">$<span id="moneyDisplay">0</span></div>
+    <div class="stat">Production: <span id="cpsDisplay">0</span>/s</div>
+
+    <div class="player-panel">
+      <h3>Your Wallet — <span id="playerName"></span></h3>
+      <div class="money-big">$<span id="yourMoney">0</span></div>
+      <div>Your $/s: <span id="yourCpsContrib">0</span></div>
+      <div>Angels: <span id="yourAngels">0</span></div>
+    </div>
+
+    <div class="player-panel" id="partnerPanel" style="display:none;">
+      <h3>Partner — <span id="partnerName">...</span></h3>
+      <div class="money-big">$<span id="partnerMoney">0</span></div>
+      <div>Partner $/s: <span id="partnerCpsContrib">0</span></div>
+    </div>
+
+    <div style="margin:25px 0;">
+      <button class="angel-btn" id="angelBtn" onclick="cashOutAngels()" style="display:none;">
+        💫 Cash Angels (<span id="angelCount">0</span>)
+      </button>
+    </div>
+
+    <div id="planetTabs" class="planet-tabs"></div>
+
+    <h2 id="planetTitle">Earth Businesses</h2>
+    <div id="contentArea"></div>
+
+    <div style="margin:40px 0;">
+      <h3>Upgrades</h3>
+      <div class="tab-container">
+        <button class="tab-btn active" onclick="showUpgradeTab('cash')">Cash</button>
+        <button class="tab-btn" onclick="showUpgradeTab('speed')">Speed</button>
+        <button class="tab-btn" onclick="showUpgradeTab('auto')">Auto</button>
+      </div>
+      <div id="upgradesArea"></div>
+    </div>
+
+    <div id="achievementsArea" style="margin:30px 0;"></div>
+
+    <div style="margin-top:40px;">
+      <h3>Team Chat</h3>
+      <div id="chat"></div>
+      <input id="chatInput" placeholder="Type message..." onkeypress="if(event.key==='Enter') sendChat()" style="padding:12px; font-size:16px; width:70%; max-width:500px; margin:10px; border-radius:8px; border:2px solid #ffb300;">
+      <button onclick="sendChat()" style="padding:12px 24px; font-size:16px;">Send</button>
+    </div>
+  </div>
+</div>
+
+<script>
+
+const firebaseConfig = {
+  apiKey: "AIzaSyA4GpOC3V9R20RFiEb14ZKWpKeNtWoWZYo",
+  authDomain: "player-adventure.firebaseapp.com",
+  projectId: "player-adventure",
+  storageBucket: "player-adventure.firebasestorage.app",
+  messagingSenderId: "535206507047",
+  appId: "1:535206507047:web:41cb018a671dcd324d1402",
+  measurementId: "G-784PYVSJDJ"
+};
+
+let db;
+try {
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.database();
+} catch (e) {
+  document.getElementById('status').innerHTML = '<span style="color:#c62828;">Firebase failed to load. Check config.</span>';
+  console.error("Firebase init error:", e);
+}
+
+// ────────────────────────────────────────────────
+//  DATA – 3 PLANETS
+// ────────────────────────────────────────────────
+const planets = [
+  { name: "Earth", businesses: [
+    {n:"Lemonade Stand",     icon:"🍋", c:4,          p:1.67, m:1.07, man:1000,   manName:"Lemon Aid"},
+    {n:"Newspaper Delivery", icon:"📰", c:60,         p:20,   m:1.15, man:15000,  manName:"Paper Boy"},
+    {n:"Car Wash",           icon:"🚿", c:720,        p:90,   m:1.14, man:100000, manName:"Soap Suds"},
+    {n:"Pizza Delivery",     icon:"🍕", c:8640,       p:360,  m:1.13, man:5000000,manName:"Fast Eddie"},
+    {n:"Donut Shop",         icon:"🍩", c:103680,     p:2160, m:1.12, man:3e8,    manName:"Donut King"},
+    {n:"Shrimp Boat",        icon:"🦐", c:1244160,    p:6480, m:1.11, man:1.5e10, manName:"Shrimpy"},
+    {n:"Hockey Team",        icon:"🏒", c:14929920,   p:19440,m:1.10, man:1e12,   manName:"Slap Shot"},
+    {n:"Movie Studio",       icon:"🎬", c:179159040,  p:58320,m:1.09, man:5e13,   manName:"Hollywood"},
+    {n:"Bank",               icon:"🏦", c:2149908480, p:174960,m:1.08, man:1e15,  manName:"Gold Vault"},
+    {n:"Oil Company",        icon:"🛢️", c:25798901760,p:804816,m:1.07, man:1e17,  manName:"Black Gold"}
+  ]},
+  { name: "Moon", businesses: [
+    {n:"Sushi Stand",        icon:"🍣", c:10,         p:3.3,   m:1.09, man:2500,   manName:"Sushi Chef"},
+    {n:"Ice Cream Truck",    icon:"🍦", c:120,        p:39,    m:1.12, man:30000,  manName:"Ice Man"},
+    {n:"Roller Coaster",     icon:"🎢", c:1500,       p:180,   m:1.11, man:250000, manName:"Thrill Seeker"},
+    {n:"Reindeer",           icon:"🦌", c:18000,      p:720,   m:1.10, man:1.2e7,  manName:"Rudolph"},
+    {n:"Gnome Garden",       icon:"🧙", c:216000,     p:4320,  m:1.09, man:7.5e8,  manName:"Gnome Lord"},
+    {n:"Wizard Tower",       icon:"🗼", c:2592000,    p:12960, m:1.08, man:4.5e10, manName:"Merlin"},
+    {n:"Alien Probe",        icon:"🛸", c:31104000,   p:38880, m:1.07, man:2.7e12, manName:"Zog"},
+    {n:"Sprinkler",          icon:"💦", c:373248000,  p:116640,m:1.06, man:1.6e14, manName:"Rain Maker"},
+    {n:"Hourglass",          icon:"⏳", c:4.48e9,     p:349920,m:1.05, man:9.6e15, manName:"Time Lord"},
+    {n:"Cerberus",           icon:"🐕", c:5.37e10,    p:1.05e6,m:1.04, man:5.8e17, manName:"Hellhound"},
+    {n:"Glass Co.",          icon:"🪟", c:6.45e11,    p:3.15e6,m:1.03, man:3.5e19, manName:"Crystal King"}
+  ]},
+  { name: "Mars", businesses: [
+    {n:"Coal Plant",          icon:"⚫", c:1000,       p:120,     m:1.10, man:5e4},
+    {n:"Oil Rig",             icon:"🛢️", c:12000,      p:1440,    m:1.09, man:6e5},
+    {n:"Meat Factory",        icon:"🥩", c:144000,     p:17280,   m:1.08, man:7.2e6},
+    {n:"Steel Mill",          icon:"🛠️", c:1728000,    p:207360,  m:1.07, man:8.6e7},
+    {n:"Battery Farm",        icon:"🔋", c:20736000,   p:2488320, m:1.06, man:1e9},
+    {n:"Gene Splicery",       icon:"🧬", c:248832000,  p:29859840,m:1.05, man:1.2e10},
+    {n:"Stabilization Chamber",icon:"🧪",c:2.99e9,     p:3.58e8,  m:1.04, man:1.4e11},
+    {n:"Crystal Refinery",    icon:"💎", c:3.58e10,    p:4.30e9,  m:1.03, man:1.7e12},
+    {n:"Death Ray",           icon:"☢️", c:4.30e11,    p:5.16e10, m:1.02, man:2e13},
+    {n:"Robot Factory",       icon:"🤖", c:5.16e12,    p:6.19e11, m:1.01, man:2.4e14}
+  ]}
+];
+
+// Sample upgrades (feel free to add more)
+const upgrades = {
+  cash: [
+    {name:"Lemonade Cash I",   cost:new Decimal("1e4"),  mult:1.5, planet:0, biz:0, desc:"Lemonade profit ×1.5"},
+    {name:"Newspaper Cash I",  cost:new Decimal("5e4"),  mult:1.4, planet:0, biz:1, desc:"Newspaper profit ×1.4"},
+    {name:"Car Wash Cash I",   cost:new Decimal("1e6"),  mult:1.3, planet:0, biz:2, desc:"Car Wash profit ×1.3"},
+    {name:"Pizza Cash Boost",  cost:new Decimal("5e7"),  mult:1.5, planet:0, biz:3, desc:"Pizza profit ×1.5"},
+    {name:"Oil Cash Mega",     cost:new Decimal("1e12"), mult:2,   planet:0, biz:9, desc:"Oil profit ×2"},
+    {name:"Moon Cash I",       cost:new Decimal("1e15"), mult:1.4, planet:1, biz:0, desc:"Moon profit ×1.4"},
+    {name:"Mars Cash I",       cost:new Decimal("1e18"), mult:1.3, planet:2, biz:0, desc:"Mars profit ×1.3"}
+  ],
+  speed: [
+    {name:"Faster Lemonade",   cost:new Decimal("5e3"),  mult:2, planet:0, biz:0, desc:"Lemonade speed ×2"},
+    {name:"Faster Pizza",      cost:new Decimal("2e5"),  mult:1.8, planet:0, biz:3, desc:"Pizza speed ×1.8"},
+    {name:"Moon Speed Boost",  cost:new Decimal("1e13"), mult:1.5, planet:1, biz:0, desc:"Moon speed ×1.5"},
+    {name:"Mars Speed Boost",  cost:new Decimal("1e16"), mult:1.4, planet:2, biz:0, desc:"Mars speed ×1.4"}
+  ],
+  auto: [
+    {name:"Auto-Collect I",    cost:new Decimal("1e6"),  mult:1.1, desc:"+10% idle income"},
+    {name:"Auto-Collect II",   cost:new Decimal("1e9"),  mult:1.15, desc:"+15% idle income"},
+    {name:"Auto-Collect III",  cost:new Decimal("1e12"), mult:1.2,  desc:"+20% idle income"},
+    {name:"Auto-Collect IV",   cost:new Decimal("1e15"), mult:1.25, desc:"+25% idle income"}
+  ]
+};
+
+// Milestones (pop-up when reached)
+const milestones = [
+  {goal:new Decimal("1e6"),  name:"$1 Million Earned!", reward:"+$1% global"},
+  {goal:new Decimal("1e9"),  name:"$1 Billion Earned!", reward:"+$2% global"},
+  {goal:new Decimal("1e12"), name:"$1 Trillion Earned!", reward:"+$3% global"},
+  {goal:new Decimal("1e15"), name:"$1 Quadrillion!", reward:"+$5% global"},
+  {goal:new Decimal("1e18"), name:"$1 Quintillion!", reward:"+$10% global"}
+];
+
+// ────────────────────────────────────────────────
+//  GAME STATE
+// ────────────────────────────────────────────────
+let roomCode, playerName, playerId, roomRef, myRef;
+let myData = {
+  money: new Decimal(0),
+  cpsContrib: new Decimal(0),
+  angels: 0,
+  planets: planets.map(p => p.businesses.map(() => ({count:0, hasManager:false}))),
+  lastActive: Date.now()
+};
+let currentPlanet = 0;
+let currentTab = "businesses";
+let angelMultiplier = new Decimal(1);
+let tickInterval;
+
+// ────────────────────────────────────────────────
+//  HELPERS
+// ────────────────────────────────────────────────
+function notate(n) {
+  return n.toStringWithDecimalPlaces(2);
+}
+
+function calcCps() {
+  let total = new Decimal(0);
+  myData.planets.forEach((planetBiz, pIdx) => {
+    planetBiz.forEach((bData, bIdx) => {
+      const base = planets[pIdx]?.businesses[bIdx]?.p || 0;
+      let count = new Decimal(bData.count);
+      if (bData.hasManager) count = count.mul(1.5);
+      total = total.add(count.mul(base));
+    });
+  });
+  return total.mul(angelMultiplier);
+}
+
+function nextCost(pIdx, bIdx) {
+  const count = myData.planets[pIdx][bIdx].count;
+  const base = planets[pIdx].businesses[bIdx].c;
+  const mult = planets[pIdx].businesses[bIdx].m;
+  return new Decimal(base).mul(new Decimal(mult).pow(count));
+}
+
+function moneyExplosion(x, y) {
+  const pop = document.createElement('div');
+  pop.className = 'click-pop';
+  pop.textContent = '+1';
+  pop.style.left = x + 'px';
+  pop.style.top = y + 'px';
+  document.body.appendChild(pop);
+  setTimeout(() => pop.remove(), 1200);
+
+  for (let i = 0; i < 8; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.textContent = '💰';
+    p.style.left = x + 'px';
+    p.style.top = y + 'px';
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), 1300);
+  }
+}
+
+// ────────────────────────────────────────────────
+//  UI
+// ────────────────────────────────────────────────
+function renderPlanetTabs() {
+  const cont = document.getElementById("planetTabs");
+  cont.innerHTML = "";
+  planets.forEach((p, i) => {
+    const btn = document.createElement("button");
+    btn.className = "planet-btn" + (i === currentPlanet ? " active" : "");
+    btn.textContent = p.name;
+    btn.onclick = () => {
+      currentPlanet = i;
+      renderPlanetTabs();
+      renderContent();
+    };
+    cont.appendChild(btn);
+  });
+}
+
+function renderContent() {
+  const area = document.getElementById("contentArea");
+  area.innerHTML = "";
+
+  if (currentTab === "businesses") {
+    renderBusinesses();
+  } else if (currentTab === "upgrades") {
+    renderUpgrades();
+  }
+}
+
+function renderBusinesses() {
+  const area = document.getElementById("contentArea");
+  area.innerHTML = "";
+  const biz = planets[currentPlanet].businesses;
+  biz.forEach((b, i) => {
+    const owned = myData.planets[currentPlanet][i].count;
+    const cost = nextCost(currentPlanet, i);
+    const mgr = myData.planets[currentPlanet][i].hasManager;
+    const card = document.createElement("div");
+    card.className = "business-card";
+    card.innerHTML = `
+      <div class="icon">${b.icon}</div>
+      <div style="font-weight:bold;font-size:18px;">${b.n}</div>
+      <div class="owned">${owned}</div>
+      <div>Cost: $${notate(cost)}</div>
+      <div class="progress"><div class="progress-bar" style="width:${Math.min(100, myData.money.div(cost).mul(100))}%"></div></div>
+      <button onclick="buyBusiness(${currentPlanet},${i})" ${myData.money.lt(cost) ? 'disabled' : ''}>Buy</button>
+      <button class="manager-btn" ${mgr ? 'disabled' : ''} onclick="buyManager(${currentPlanet},${i})">
+        ${mgr ? '✓ ' + b.manName : 'Mgr $'+notate(b.man)}
+      </button>
+    `;
+    area.appendChild(card);
+  });
+}
+
+function renderUpgrades() {
+  const area = document.getElementById("contentArea");
+  area.innerHTML = "";
+  const cats = ["cash", "speed", "auto"];
+  cats.forEach(cat => {
+    upgrades[cat].forEach(u => {
+      const card = document.createElement("div");
+      card.className = "business-card";
+      card.innerHTML = `
+        <div style="font-weight:bold;font-size:18px;">${u.name}</div>
+        <div>Cost: $${notate(u.cost)}</div>
+        <div>${u.desc || u.effect}</div>
+        <button onclick="buyUpgrade('${cat}', '${u.name}')" ${myData.money.lt(u.cost) ? 'disabled' : ''}>Buy</button>
+      `;
+      area.appendChild(card);
+    });
+  });
+}
+
+function updateUI() {
+  document.getElementById("playerName").textContent = playerName;
+  document.getElementById("yourMoney").textContent = notate(myData.money);
+  document.getElementById("yourCpsContrib").textContent = notate(myData.cpsContrib);
+  document.getElementById("yourAngels").textContent = myData.angels;
+  document.getElementById("angelCount").textContent = myData.angels;
+  document.getElementById("angelBtn").style.display = myData.angels > 0 ? "inline-block" : "none";
+}
+
+// ────────────────────────────────────────────────
+//  ACTIONS
+// ────────────────────────────────────────────────
+function buyBusiness(pIdx, bIdx) {
+  const cost = nextCost(pIdx, bIdx);
+  if (myData.money.gte(cost)) {
+    myData.money = myData.money.sub(cost);
+    myData.planets[pIdx][bIdx].count++;
+    myData.cpsContrib = calcCps();
+    saveMyData();
+    moneyExplosion(event.clientX, event.clientY);
+  }
+}
+
+function buyManager(pIdx, bIdx) {
+  const manCost = planets[pIdx].businesses[bIdx].man;
+  if (myData.money.gte(manCost) && !myData.planets[pIdx][bIdx].hasManager) {
+    myData.money = myData.money.sub(manCost);
+    myData.planets[pIdx][bIdx].hasManager = true;
+    myData.cpsContrib = calcCps();
+    saveMyData();
+  }
+}
+
+function cashOutAngels() {
+  if (myData.angels <= 0) return;
+  const earned = myData.angels;
+  const multGain = new Decimal(1).add(new Decimal(earned).mul(0.02));
+
+  myData.money = new Decimal(0);
+  myData.planets = planets.map(p => p.businesses.map(() => ({count:0, hasManager:false})));
+  myData.cpsContrib = new Decimal(0);
+  myData.angels = 0;
+
+  roomRef.child('angelMultiplier').transaction(m => (m||1) * multGain.toNumber());
+  roomRef.child('teamAngels').transaction(a => (a||0) + earned);
+
+  saveMyData();
+  alert(`Prestige! Team multiplier now ×${multGain.toFixed(2)}`);
+}
+
+function saveMyData() {
+  myRef.update({
+    name: playerName,
+    money: myData.money.toString(),
+    cpsContrib: myData.cpsContrib.toString(),
+    angels: myData.angels,
+    planets: myData.planets,
+    lastActive: Date.now()
+  });
+}
+
+function joinRoom() {
+  const status = document.getElementById('status');
+  status.innerHTML = '<span style="color:#ff6f00;">Connecting to empire...</span>';
+
+  roomCode = document.getElementById('roomInput').value.trim().toLowerCase() || 'default';
+  playerName = document.getElementById('nameInput').value.trim() || 'Player';
+  playerId = Math.random().toString(36).slice(2,10);
+
+  if (!db) {
+    status.innerHTML = '<span style="color:#c62828;">Firebase not loaded – check config</span>';
+    return;
+  }
+
+  roomRef = db.ref('co-op-adcap/' + roomCode);
+  myRef = roomRef.child('players/' + playerId);
+
+  document.getElementById('setup').style.display = 'none';
+  document.getElementById('game').style.display = 'block';
+
+  myRef.on('value', snap => {
+    const d = snap.val();
+    if (d) {
+      myData.money = new Decimal(d.money || 0);
+      myData.cpsContrib = new Decimal(d.cpsContrib || 0);
+      myData.angels = d.angels || 0;
+      myData.planets = d.planets || planets.map(p => p.businesses.map(() => ({count:0, hasManager:false})));
+      if (d.lastActive) {
+        const delta = (Date.now() - d.lastActive)/1000;
+        roomRef.child('teamCps').once('value', s => {
+          const team = new Decimal(s.val() || 0);
+          myData.money = myData.money.add(team.mul(delta).div(2));
+          saveMyData();
+        });
+      }
+    }
+    renderPlanetTabs();
+    renderContent();
+    updateUI();
+    status.innerHTML = '<span style="color:#4caf50;">Connected! Empire loaded.</span>';
+  });
+
+  roomRef.child('players').on('value', snap => {
+    const pls = snap.val() || {};
+    const keys = Object.keys(pls);
+    const opp = keys.find(k => k !== playerId);
+    if (opp) {
+      const p = pls[opp];
+      document.getElementById('partnerName').textContent = p.name;
+      document.getElementById('partnerMoney').textContent = notate(new Decimal(p.money||0));
+      document.getElementById('partnerCpsContrib').textContent = notate(new Decimal(p.cpsContrib||0));
+      document.getElementById('partnerPanel').style.display = 'inline-block';
+    }
+    let total = new Decimal(0);
+    Object.values(pls).forEach(p => total = total.add(new Decimal(p.cpsContrib||0)));
+    roomRef.child('teamCps').set(total.toString());
+  });
+
+  roomRef.child('angelMultiplier').on('value', snap => {
+    angelMultiplier = new Decimal(snap.val() || 1);
+    myData.cpsContrib = calcCps();
+    document.getElementById('teamMultiplier').textContent = angelMultiplier.toFixed(2);
+  });
+
+  myRef.set({
+    name: playerName,
+    money: "0",
+    cpsContrib: "0",
+    angels: 0,
+    planets: myData.planets,
+    lastActive: Date.now()
+  }).catch(err => {
+    status.innerHTML = '<span style="color:#c62828;">Error: ' + err.message + '</span>';
+  });
+
+  let lastTick = Date.now();
+  tickInterval = setInterval(() => {
+    const delta = (Date.now() - lastTick) / 1000;
+    roomRef.child('teamCps').once('value', s => {
+      const team = new Decimal(s.val() || 0);
+      myData.money = myData.money.add(team.mul(delta).div(2));
+      saveMyData();
+    });
+    lastTick = Date.now();
+  }, 200);
+}
+
+function sendChat() {
+  const msg = document.getElementById('chatInput').value.trim();
+  if (!msg) return;
+  roomRef.child('chat').push({player:playerName, text:msg, time:Date.now()});
+  document.getElementById('chatInput').value = '';
+}
+
+roomRef?.child('chat')?.on('child_added', snap => {
+  const m = snap.val();
+  document.getElementById('chat').innerHTML += `<div><b>${m.player}:</b> ${m.text} <small>(${new Date(m.time).toLocaleTimeString()})</small></div>`;
+  document.getElementById('chat').scrollTop = document.getElementById('chat').scrollHeight;
+});
+
+function moneyExplosion(x, y) {
+  for (let i = 0; i < 8; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.textContent = '💰';
+    p.style.left = x + 'px';
+    p.style.top = y + 'px';
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), 1200);
+  }
+}
+
+// Hotkeys
+document.addEventListener('keydown', e => {
+  if (document.getElementById('game').style.display === 'none') return;
+  if (e.key === ' ') {
+    myData.money = myData.money.add(1);
+    saveMyData();
+  }
+});
+
+// Initial setup
+renderPlanetTabs();
+</script>
+</body>
+</html>
